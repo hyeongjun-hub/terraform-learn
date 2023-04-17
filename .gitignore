@@ -1,6 +1,5 @@
 .terraform
-.idea
 .terraform.lock.hcl
-learn_Terraform.iml
-terraform.tfstate
-terraform.tfstate.backup
+.idea
+*.tfstate
+*.tfstate.backup
