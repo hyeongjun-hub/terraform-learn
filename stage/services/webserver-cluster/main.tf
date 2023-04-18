@@ -47,27 +47,19 @@ resource "aws_security_group" "alb" {
   }
 }
 
-variable "server_port" {
-  description = "HTTP 요청에 사용할 Port번호 지정"
-  type = number
-  default = 8080
-}
-
-output "alb_dns_name" {
-  description = "web server에 접속하기 위한 public alb dns"
-  value = aws_alb.example.dns_name
-}
-
 resource "aws_launch_configuration" "example" {
   image_id = "ami-04cebc8d6c4f297a3"
   instance_type = "t2.micro"
   security_groups = [aws_security_group.instance.id]
+  user_data = data.template_file.user_data.rendered
 
-  user_data = <<-EOF
-#!/bin/bash
-echo 'Hello, world~~!' >> index.html
-nohup busybox httpd -f -p ${var.server_port} &
-                EOF
+//  user_data = <<-EOF
+//#!/bin/bash
+//echo 'Hello, world~~!' >> index.html
+//echo "${data.terraform_remote_state.db.outputs.address}" >> index.html
+//echo "${data.terraform_remote_state.db.outputs.port}" >> index.html
+//nohup busybox httpd -f -p ${var.server_port} &
+//                EOF
 
   lifecycle {
     create_before_destroy = true
@@ -76,27 +68,22 @@ nohup busybox httpd -f -p ${var.server_port} &
 
 resource "aws_autoscaling_group" "example" {
   launch_configuration = aws_launch_configuration.example.name
-  vpc_zone_identifier = data.aws_subnet_ids.default.ids
+//  vpc_zone_identifier = data.aws_subnet_ids.default.ids
+  availability_zones   = ["ap-northeast-2a", "ap-northeast-2c"]
 
   target_group_arns = [aws_lb_target_group.asg.arn]
   health_check_type = "ELB"
 
+
   min_size = 2
   max_size = 4
+
 
   tag {
     key = "Name"
     value = "terraform-asg-example"
     propagate_at_launch = true
   }
-}
-
-data "aws_vpc" "default" {
-  default = true
-}
-
-data "aws_subnet_ids" "default" {
-  vpc_id = data.aws_vpc.default.id
 }
 
 resource "aws_alb" "example" {
@@ -153,5 +140,34 @@ resource "aws_lb_listener_rule" "asg" {
   action {
     type = "forward"
     target_group_arn = aws_lb_target_group.asg.arn
+  }
+}
+
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnet_ids" "default" {
+  vpc_id = data.aws_vpc.default.id
+}
+
+data "terraform_remote_state" "db" {
+  backend = "s3"
+
+  config = {
+    bucket = "terraform-up-and-running-state-hyeongjun"
+    key = "stage/data-stores/mysql/terraform.tfstate"
+    region = "ap-northeast-2"
+  }
+}
+
+data "template_file" "user_data" {
+  template = file("user-data.sh")
+
+  vars = {
+    server_port = var.server_port
+    db_address = data.terraform_remote_state.db.outputs.address
+    db_port = data.terraform_remote_state.db.outputs.port
   }
 }
