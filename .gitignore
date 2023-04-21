@@ -12,7 +12,7 @@ live/stage/data-stores/mysql/.terraform.lock.hcl
 live/stage/data-stores/mysql/.terraform/*
 
 # etc
-*.tfstate/
+*.tfstate
 *.tfstate.backup
 *.terraform/
 *.terraform.lock.hcl

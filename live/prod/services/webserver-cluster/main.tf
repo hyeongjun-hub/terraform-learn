@@ -3,10 +3,10 @@ provider "aws" {
 }
 
 module "webserver_cluster" {
-  source = "../../../../modules/services/webserver-cluster"
+  source = "github.com/hyeongjun-hub/terraform_modules//services/webserver-cluster?ref=v0.0.1"
   cluster_name = "webserver-stage"
   db_remote_state_bucket = "terraform-up-and-running-state-hyeongjun"
-  db_remote_state_key = "stage/data-stores/mysql/terraform.tfstate"
+  db_remote_state_key = "prod/data-stores/mysql/terraform.tfstate"
   instance_type = "m4.large"
   max_size = 2
   min_size = 10
