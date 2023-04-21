@@ -4,7 +4,7 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$">
-      <excludeFolder url="file://$MODULE_DIR$/global/s3/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/live/global/s3/.terraform" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
