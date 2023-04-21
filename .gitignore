@@ -2,14 +2,14 @@
 .idea
 
 # global
-global/s3/.terraform
-global/s3/.terraform.lock.hcl
+live/global/s3/.terraform
+live/global/s3/.terraform.lock.hcl
 
 # stage
-stage/services/webserver-cluster/.terraform.lock.hcl
+live/stage/services/webserver-cluster/.terraform.lock.hcl
 modules/services/webserver-cluster/.terraform/
-stage/data-stores/mysql/.terraform.lock.hcl
-stage/data-stores/mysql/.terraform/*
+live/stage/data-stores/mysql/.terraform.lock.hcl
+live/stage/data-stores/mysql/.terraform/*
 
 # etc
 *.tfstate/
