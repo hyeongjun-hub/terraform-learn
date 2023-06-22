@@ -14,7 +14,9 @@ module "webserver_cluster" {
   instance_type = "t2.micro"
   max_size = 2
   min_size = 2
-//  source = "github.com/brikis98/terraform-up-and-running-code//code/terraform/04-terraform-module/module-example/modules/services/webserver-cluster?ref=v0.1.0"
+
+  enable_autoscaling = false
+  enable_new_user_data = true
 }
 
 resource "aws_security_group_rule" "allow_testing_inbound" {

@@ -6,9 +6,9 @@ resource "aws_s3_bucket" "terraform_state" {
   bucket = "terraform-up-and-running-state-hyeongjun"
 
   # 중요한 리소스를 실수로 destroy 하지 않게 destroy 중 오류 발생
-  lifecycle {
-    prevent_destroy = true
-  }
+//  lifecycle {
+//    prevent_destroy = true
+//  }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "example" {

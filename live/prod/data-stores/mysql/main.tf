@@ -8,7 +8,7 @@ resource "aws_db_instance" "example" {
   engine = "mysql"
   # 10GB storage 할당
   allocated_storage = 10
-  name = "example_database_prod"
+//  name = "example_database_prod"
   username = "admin"
 
   # password?

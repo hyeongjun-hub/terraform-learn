@@ -57,7 +57,11 @@ resource "aws_launch_configuration" "example" {
   image_id = "ami-04cebc8d6c4f297a3"
   instance_type = var.instance_type
   security_groups = [aws_security_group.instance.id]
-  user_data = data.template_file.user_data.rendered
+  user_data = (
+          length(data.template_file.user_data[*]) > 0
+          ? data.template_file.user_data[0].rendered
+          : data.template_file.user_data_new[0].rendered
+  )
 
 //  user_data = <<-EOF
 //#!/bin/bash
@@ -89,6 +93,20 @@ resource "aws_autoscaling_group" "example" {
     key = "Name"
     value = var.cluster_name
     propagate_at_launch = true
+  }
+
+  dynamic "tag" {
+    for_each = {
+    for key, value in var.custom_tags:
+    key => upper(value)
+    if key != "Name"
+    }
+
+    content {
+      key = tag.key
+      value = tag.value
+      propagate_at_launch = true
+    }
   }
 }
 
@@ -168,8 +186,125 @@ data "terraform_remote_state" "db" {
   }
 }
 
+locals {
+  http_port = 80
+  any_port = 0
+  any_protocol = "-1"
+  tcp_protocol = "tcp"
+  all_ips = ["0.0.0.0/0"]
+}
+
+resource "aws_autoscaling_schedule" "scale_out_during_business_hours" {
+  count = var.enable_autoscaling ? 1: 0
+
+  scheduled_action_name = "${var.cluster_name}-scale-out-during-business-hours"
+  min_size = 2
+  max_size = 10
+  desired_capacity = 10
+  recurrence = "0 9 * * *"
+  autoscaling_group_name = aws_autoscaling_group.example.name
+}
+
+resource "aws_autoscaling_schedule" "scale_in_at_night" {
+  count = var.enable_autoscaling ? 1: 0
+
+  scheduled_action_name = "${var.cluster_name}-scale-in-at-night"
+  min_size = 2
+  max_size = 10
+  desired_capacity = 2
+  recurrence = "0 17 * * *"
+  autoscaling_group_name = aws_autoscaling_group.example.name
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_cpu_utilization" {
+  alarm_name = "${var.cluster_name}-high-cpu-utilization"
+  namespace = "AWS/EC2"
+  metric_name = "CPUUtilization"
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.example.name
+  }
+
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods = 1
+  period = 300
+  statistic = "Average"
+  threshold = 90
+  unit = "Percent"
+}
+
+# t series 의 instance 만 설정하고 싶음
+resource "aws_cloudwatch_metric_alarm" "low_cpu_credit_balance" {
+  count = format("%.1s", var.instance_type) == "t" ? 1 : 0
+
+  alarm_name = "${var.cluster_name}-low-cpu-credit-balance"
+  namespace = "AWS/EC2"
+  metric_name = "CPUCreditBalance"
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.example.name
+  }
+
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods = 1
+  period = 300
+  statistic = "Minimum"
+  threshold = 10
+  unit = "Count"
+}
+
+# if else 를 위한 IAM 정책
+### 읽기 정책
+resource "aws_iam_policy" "cloudwatch_read_only" {
+  name = "cloudwatch-read-only"
+  policy = data.aws_iam_policy_document.cloudwatch_read_only.json
+}
+
+data "aws_iam_policy_document" "cloudwatch_read_only" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "cloudwatch:Describe:*",
+      "cloudwatch:Get*",
+      "cloudwatch:List*"
+    ]
+    resources = ["*"]
+  }
+}
+
+### 쓰기 정책
+resource "aws_iam_policy" "cloudwatch_full_access" {
+  name = "cloudwatch-full-access"
+  policy = data.aws_iam_policy_document.cloudwatch_full_access.json
+}
+
+data "aws_iam_policy_document" "cloudwatch_full_access" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "cloudwatch:*",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_user_policy_attachment" "neo_cloudwatch_full_access" {
+  count = var.give_neo_cloudwatch_full_access ? 1 : 0
+  user = "neo"
+  policy_arn = aws_iam_policy.cloudwatch_full_access.arn
+}
+
+resource "aws_iam_user_policy_attachment" "neo_cloudwatch_read_only" {
+  count = var.give_neo_cloudwatch_full_access ? 0 : 1
+  user = "neo"
+  policy_arn = aws_iam_policy.cloudwatch_read_only.arn
+}
+
+# user-data.sh / user-data-new.sh 선택하기
 data "template_file" "user_data" {
-  template = file("user-data.sh")
+  count = var.enable_new_user_data ? 0 : 1
+
+  template = file("${path.module}/user-data.sh")
 
   vars = {
     server_port = var.server_port
@@ -178,10 +313,12 @@ data "template_file" "user_data" {
   }
 }
 
-locals {
-  http_port = 80
-  any_port = 0
-  any_protocol = "-1"
-  tcp_protocol = "tcp"
-  all_ips = ["0.0.0.0/0"]
+data "template_file" "user_data_new" {
+  count = var.enable_new_user_data ? 1 : 0
+  template = file("${path.module}/user-data-new.sh")
+
+  vars = {
+    server_port = var.server_port
+  }
 }
+
